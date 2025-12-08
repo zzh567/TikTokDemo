@@ -1,0 +1,7 @@
+<resources>
+    <style name="BottomNavText_Inactive">
+        <item name="android:textSize">12sp</item>      <item name="android:textStyle">normal</item>    <item name="android:textColor">#99FFFFFF</item> </style>
+
+    <style name="BottomNavText_Active">
+        <item name="android:textSize">12sp</item>      <item name="android:textStyle">bold</item>      <item name="android:textColor">#FFFFFF</item>   </style>
+</resources>
