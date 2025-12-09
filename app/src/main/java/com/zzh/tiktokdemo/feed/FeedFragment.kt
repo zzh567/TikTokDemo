@@ -36,6 +36,14 @@ class FeedFragment : Fragment(R.layout.fragment_feed) {
         }
     }
 
+    private fun setupRefreshLayout() {
+        // 监听下拉动作
+        binding.refreshLayout.setOnRefreshListener {
+            // 告诉 ViewModel：用户想刷新，请重新去网络拉数据！
+            viewModel.fetchVideoList()
+        }
+    }
+
     // NEW: 核心观察逻辑
     private fun observeViewModel() {
         // 观察视频列表数据
@@ -44,6 +52,10 @@ class FeedFragment : Fragment(R.layout.fragment_feed) {
             if (videos != null && videos.isNotEmpty()) {
                 // 将数据提交给 Adapter，Adapter 会自动计算差异并刷新 UI
                 feedAdapter.submitList(videos)
+                binding.refreshLayout.finishRefresh()
+            }else {
+                // 如果数据为空或者是失败，也得结束刷新，否则圈圈会一直转
+                binding.refreshLayout.finishRefresh(false) // false 表示刷新失败
             }
         }
 

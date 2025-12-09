@@ -5,9 +5,7 @@ plugins {
 
 android {
     namespace = "com.zzh.tiktokdemo"
-    compileSdk {
-        version = release(36)
-    }
+    compileSdk = 36
 
     defaultConfig {
         applicationId = "com.zzh.tiktokdemo"
@@ -61,4 +59,5 @@ dependencies {
     implementation ("io.github.scwang90:refresh-layout-kernel:2.0.6")
 // Fragment KTX (提供了 by viewModels() 等语法糖)
     implementation("androidx.fragment:fragment-ktx:1.6.1")
+    implementation("io.github.scwang90:refresh-header-classics:2.0.6")
 }

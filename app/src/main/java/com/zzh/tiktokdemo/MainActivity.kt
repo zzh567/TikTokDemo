@@ -6,7 +6,7 @@ import android.os.Bundle
 import androidx.appcompat.app.AppCompatActivity
 import androidx.fragment.app.Fragment
 import com.zzh.tiktokdemo.databinding.ActivityMainBinding
-import com.zzh.tiktokdemo.feed.HomeFragment // 刚才新建的 Fragment
+import com.zzh.tiktokdemo.feed.HomeFragment
 
 class MainActivity : AppCompatActivity() {
 
