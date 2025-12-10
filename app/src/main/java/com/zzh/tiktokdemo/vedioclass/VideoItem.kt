@@ -1,7 +1,10 @@
 package com.zzh.tiktokdemo.vedioclass
 
+import android.os.Parcelable
 import com.google.gson.annotations.SerializedName
+import kotlinx.parcelize.Parcelize
 
+@Parcelize
 data class VideoItem(
     @SerializedName("id") val id: String,
     @SerializedName("title") val title: String,
@@ -11,4 +14,4 @@ data class VideoItem(
     @SerializedName("img_height") val height: Int,
     @SerializedName("like_count") val likeCount: Int,
     @SerializedName("author") val author: String
-)
+) : Parcelable

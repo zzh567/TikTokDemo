@@ -25,6 +25,7 @@ class FeedFragment : Fragment(R.layout.fragment_feed) {
         _binding = FragmentFeedBinding.bind(view)
 
         setupRecyclerView()
+        setupRefreshLayout()
         observeViewModel() // NEW: 3. 开始观察数据
     }
 
@@ -46,25 +47,21 @@ class FeedFragment : Fragment(R.layout.fragment_feed) {
 
     // NEW: 核心观察逻辑
     private fun observeViewModel() {
-        // 观察视频列表数据
         viewModel.videoList.observe(viewLifecycleOwner) { videos ->
-            // 当数据发生变化时，这个 lambda 会自动执行
             if (videos != null && videos.isNotEmpty()) {
-                // 将数据提交给 Adapter，Adapter 会自动计算差异并刷新 UI
-                feedAdapter.submitList(videos)
+                feedAdapter.submitList(videos) {
+                    binding.feedRecyclerView.apply {
+                        layoutManager = StaggeredGridLayoutManager(2, StaggeredGridLayoutManager.VERTICAL)
+                        adapter = feedAdapter
+                        itemAnimator = null
+                    }
+                }
+
                 binding.refreshLayout.finishRefresh()
-            }else {
-                // 如果数据为空或者是失败，也得结束刷新，否则圈圈会一直转
-                binding.refreshLayout.finishRefresh(false) // false 表示刷新失败
+            } else {
+                binding.refreshLayout.finishRefresh(false)
             }
         }
-
-        // 观察 Loading 状态 (可选：如果你在 XML 里加了 ProgressBar)
-        /*
-        viewModel.isLoading.observe(viewLifecycleOwner) { isLoading ->
-            binding.progressBar.visibility = if (isLoading) View.VISIBLE else View.GONE
-        }
-        */
     }
 
     override fun onDestroyView() {

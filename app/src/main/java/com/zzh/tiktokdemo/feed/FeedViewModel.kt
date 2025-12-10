@@ -40,6 +40,7 @@ class FeedViewModel : ViewModel() {
 
                 // 4. 拿到数据，通知 UI 更新
                 Log.d("FeedViewModel", "成功获取 ${videos.size} 条数据")
+                Log.d("Videos", "${videos}")
                 _videoList.value = videos
 
             } catch (e: Exception) {

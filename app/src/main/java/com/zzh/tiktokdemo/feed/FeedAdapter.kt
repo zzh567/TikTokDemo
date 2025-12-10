@@ -8,7 +8,10 @@ import androidx.recyclerview.widget.RecyclerView
 import com.zzh.tiktokdemo.R
 import com.zzh.tiktokdemo.vedioclass.VideoItem
 import com.bumptech.glide.Glide
+import com.zzh.tiktokdemo.PlayerActivity
 import com.zzh.tiktokdemo.databinding.ItemVideoFeedBinding
+import android.app.Activity
+import androidx.core.app.ActivityOptionsCompat
 
 // 1. 实现 DiffUtil.ItemCallback，高效对比新旧列表
 class FeedDiffCallback : DiffUtil.ItemCallback<VideoItem>() {
@@ -34,6 +37,7 @@ class FeedAdapter : ListAdapter<VideoItem, FeedAdapter.FeedViewHolder>(FeedDiffC
             binding.tvTitle.text = item.title
             binding.tvLikes.text = item.likeCount.toString()
             binding.tvAuthor.text = item.author
+            binding.ivCover.transitionName = item.videoUrl
 
             val params = binding.ivCover.layoutParams as androidx.constraintlayout.widget.ConstraintLayout.LayoutParams
 
@@ -55,7 +59,12 @@ class FeedAdapter : ListAdapter<VideoItem, FeedAdapter.FeedViewHolder>(FeedDiffC
 
             // 关键：点击事件 (Day 3 的入口)
             binding.root.setOnClickListener {
-                // TODO: 跳转到播放页
+                val options = ActivityOptionsCompat.makeSceneTransitionAnimation(
+                    itemView.context as Activity,
+                    binding.ivCover,
+                    item.videoUrl
+                )
+                PlayerActivity.start(itemView.context, currentList, position, options.toBundle())
             }
         }
     }
