@@ -12,10 +12,11 @@ data class VideoItem(
     @SerializedName("cover_url") val coverUrl: String,
     @SerializedName("img_width") val width: Int,
     @SerializedName("img_height") val height: Int,
-    @SerializedName("like_count") val likeCount: Int,
+    @SerializedName("like_count") var likeCount: Int,
     @SerializedName("author") val author: String,
     @SerializedName("collect_count") var collectCount: Int = 0,
     @SerializedName("comment_count") var commentCount: Int = 0,
+    var localAvatarUri: String? = null,
     var isLiked: Boolean = false,
     var isCollected: Boolean = false
 ) : Parcelable

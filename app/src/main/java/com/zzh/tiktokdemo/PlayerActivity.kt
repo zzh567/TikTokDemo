@@ -1,14 +1,24 @@
 package com.zzh.tiktokdemo
 
+import android.Manifest
 import android.content.Context
 import android.content.Intent
+import android.net.Uri
 import android.os.Bundle
+import android.os.Environment
+import android.widget.Toast
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
+import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
+import androidx.core.content.FileProvider
+
 import androidx.recyclerview.widget.RecyclerView
 import androidx.viewpager2.widget.ViewPager2
+import com.yalantis.ucrop.UCrop
 import com.zzh.tiktokdemo.databinding.ActivityPlayerBinding
 import com.zzh.tiktokdemo.vedioclass.VideoItem
+import java.io.File
 
 class PlayerActivity : AppCompatActivity() {
 
@@ -37,6 +47,42 @@ class PlayerActivity : AppCompatActivity() {
     // 保存 Adapter 引用，方便后面调用 addData
     private lateinit var adapter: PlayerAdapter
 
+    // 记录当前正在修改头像的那一项的索引
+    private var currentChangingPosition = -1
+    // 拍照时照片的临时存 Uri
+    private lateinit var photoUri: Uri
+
+    // 🔥 1. 定义图库启动器
+    private val galleryLauncher = registerForActivityResult(ActivityResultContracts.GetContent()) { uri: Uri? ->
+        uri?.let { startCrop(it) } // 拿到图片，去裁剪
+    }
+
+    // 🔥 2. 定义相机启动器
+    private val cameraLauncher = registerForActivityResult(ActivityResultContracts.TakePicture()) { success ->
+        if (success && photoUri != null) {
+            startCrop(photoUri!!) // 拍照成功，去裁剪
+        }
+    }
+
+    // 🔥 3. 定义裁剪启动器 (uCrop)
+    private val cropLauncher = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
+        if (result.resultCode == RESULT_OK && result.data != null) {
+            val resultUri = UCrop.getOutput(result.data!!)
+            handleCropResult(resultUri)
+        } else if (result.resultCode == UCrop.RESULT_ERROR) {
+            Toast.makeText(this, "裁剪失败", Toast.LENGTH_SHORT).show()
+        }
+    }
+
+    // 🔥 4. 定义权限请求启动器 (简单处理，为了演示核心流程)
+    private val requestPermissionLauncher = registerForActivityResult(ActivityResultContracts.RequestPermission()) { isGranted: Boolean ->
+        if (isGranted) {
+            openCamera()
+        } else {
+            Toast.makeText(this, "需要相机权限才能拍照", Toast.LENGTH_SHORT).show()
+        }
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         binding = ActivityPlayerBinding.inflate(layoutInflater)
@@ -51,14 +97,24 @@ class PlayerActivity : AppCompatActivity() {
         initViewPager()
         setupSmartRefresh() // 🔥 2. 配置刷新
         observeViewModel()  // 🔥 3. 观察数据
+        binding.floatingAiBall.setOnClickListener {
+            showAiChatDialog()
+        }
+    }
+    private fun showAiChatDialog() {
+        // 暂停视频 (可选，看需求)
+        currentPlayingHolder?.pause()
+
+        val dialog = AiChatDialogFragment()
+        dialog.show(supportFragmentManager, "AiChatDialog")
     }
 
     private fun initViewPager() {
         binding.viewPager.orientation = ViewPager2.ORIENTATION_VERTICAL
 
         adapter = PlayerAdapter(videoList, startPosition, {
-            supportStartPostponedEnterTransition()
-        })
+            supportStartPostponedEnterTransition()}, { position -> showAvatarSelectionDialog(position) },
+        )
 
         binding.viewPager.adapter = adapter
 
@@ -154,5 +210,92 @@ class PlayerActivity : AppCompatActivity() {
         // 直接命令存好的 holder 释放
         currentPlayingHolder?.release()
         currentPlayingHolder = null // 避免内存泄漏
+    }
+
+    // 更换头像
+    // 步骤 A: 显示选择对话框
+    private fun showAvatarSelectionDialog(position: Int) {
+        // 🔥🔥🔥 修复 Bug 1: 弹窗时主动暂停视频
+        // 因为 Dialog 不会触发 onPause，所以我们得手动停
+        currentPlayingHolder?.pause()
+
+        currentChangingPosition = position
+        val options = arrayOf("拍照", "从相册选择")
+        AlertDialog.Builder(this)
+            .setTitle("更换头像")
+            .setItems(options) { _, which ->
+                when (which) {
+                    0 -> checkCameraPermissionAndOpen()
+                    1 -> galleryLauncher.launch("image/*")
+                }
+            }
+            .setOnCancelListener {
+                // 可选：如果用户取消弹窗，恢复播放
+                currentPlayingHolder?.play()
+            }
+            .show()
+    }
+
+    // 步骤 B: 检查权限并打开相机
+    private fun checkCameraPermissionAndOpen() {
+        // 简单检查相机权限
+        if (androidx.core.content.ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA)
+            == android.content.pm.PackageManager.PERMISSION_GRANTED) {
+            openCamera()
+        } else {
+            requestPermissionLauncher.launch(Manifest.permission.CAMERA)
+        }
+    }
+
+    // 步骤 C: 真正打开相机
+    private fun openCamera() {
+        // 1. 创建一个临时文件用来存照片
+        val photoFile = File(
+            getExternalFilesDir(Environment.DIRECTORY_PICTURES),
+            "temp_avatar_${System.currentTimeMillis()}.jpg"
+        )
+        // 2. 通过 FileProvider 获取安全的 Uri
+        photoUri = FileProvider.getUriForFile(this, "${packageName}.fileprovider", photoFile)
+        // 3. 启动相机
+        cameraLauncher.launch(photoUri)
+    }
+
+    // 步骤 D: 开始裁剪 (uCrop 核心配置)
+    private fun startCrop(sourceUri: Uri) {
+        // 1. 定义裁剪后文件的保存位置 (缓存目录)
+        val destinationFileName = "cropped_avatar_${System.currentTimeMillis()}.jpg"
+        val destinationUri = Uri.fromFile(File(cacheDir, destinationFileName))
+
+        // 2. 配置 uCrop 选项
+        val options = UCrop.Options().apply {
+            setCircleDimmedLayer(true) // 🔥 关键：设置为圆形遮罩层！
+            setShowCropFrame(false)    // 隐藏矩形边框
+            setShowCropGrid(false)     // 隐藏网格
+            setCompressionQuality(80)  // 压缩质量
+            // 可以设置主题色...
+            // setToolbarColor(getColor(R.color.colorPrimary))
+        }
+
+        // 3. 构建 Intent 并启动
+        val intent = UCrop.of(sourceUri, destinationUri)
+            .withAspectRatio(1f, 1f) // 强制 1:1 方形比例
+            .withOptions(options)
+            .getIntent(this)
+
+        cropLauncher.launch(intent)
+    }
+
+    // 步骤 E: 处理裁剪结果，更新 UI
+    private fun handleCropResult(resultUri: Uri?) {
+        if (resultUri != null && currentChangingPosition != -1) {
+            // 1. 更新数据源
+            videoList[currentChangingPosition].localAvatarUri = resultUri.toString()
+
+            // 🔥🔥🔥 修复 Bug 2: 使用 Payload 进行局部刷新
+            // 传一个 "UPDATE_AVATAR" 字符串，告诉 Adapter 别动播放器，只换头像
+            adapter.notifyItemChanged(currentChangingPosition, "UPDATE_AVATAR")
+
+            Toast.makeText(this, "头像更换成功", Toast.LENGTH_SHORT).show()
+        }
     }
 }

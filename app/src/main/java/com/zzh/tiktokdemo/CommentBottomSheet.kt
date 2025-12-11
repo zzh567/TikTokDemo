@@ -38,8 +38,6 @@ class CommentBottomSheet(
         binding.rvComments.layoutManager = LinearLayoutManager(context)
         binding.rvComments.adapter = commentAdapter
 
-        binding.ivClose.setOnClickListener { dismiss() }
-
         // 2. 模拟从服务器拉取数据
         loadMockComments()
 

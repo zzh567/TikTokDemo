@@ -38,6 +38,13 @@ class FeedAdapter : ListAdapter<VideoItem, FeedAdapter.FeedViewHolder>(FeedDiffC
             binding.tvLikes.text = item.likeCount.toString()
             binding.tvAuthor.text = item.author
             binding.ivCover.transitionName = item.videoUrl
+            if (item.isLiked) {
+                // 已点赞：设置为粉红色
+                binding.ivLikeIcon.setColorFilter(0xFFFF4081.toInt())
+            } else {
+                // 未点赞：设置为灰色 (根据你的背景色，如果是白底通常用灰色 #888888)
+                binding.ivLikeIcon.setColorFilter(0xFF888888.toInt())
+            }
 
             val params = binding.ivCover.layoutParams as androidx.constraintlayout.widget.ConstraintLayout.LayoutParams
 

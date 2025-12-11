@@ -61,4 +61,13 @@ dependencies {
 // Fragment KTX (提供了 by viewModels() 等语法糖)
     implementation("androidx.fragment:fragment-ktx:1.6.1")
     implementation("io.github.scwang90:refresh-header-classics:2.0.6")
+
+    implementation("com.github.yalantis:ucrop:2.2.8")
+    implementation("androidx.activity:activity-ktx:1.7.2")
+    implementation("androidx.fragment:fragment-ktx:1.6.1")
+
+    // 协程核心库 (用于模拟 AI 网络延迟)
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.7.1")
+    // Material Design 组件 (用于更好看的输入框和按钮)
+    implementation("com.google.android.material:material:1.9.0")
 }
