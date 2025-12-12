@@ -38,20 +38,16 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    /**
-     * 核心：手动控制 UI 样式的变化
-     * 这种简单的 if-else 比改 XML Style 简单一万倍
-     */
     private fun updateBottomTabUI(isHome: Boolean) {
         if (isHome) {
-            // 选中首页：首页变白变粗，我的变灰变细
+            // 选中首页
             binding.btnHome.setTextColor(Color.WHITE)
             binding.btnHome.typeface = Typeface.DEFAULT_BOLD
 
             binding.btnMe.setTextColor(Color.parseColor("#99FFFFFF"))
             binding.btnMe.typeface = Typeface.DEFAULT
         } else {
-            // 选中我的：反之
+            // 选中我的
             binding.btnHome.setTextColor(Color.parseColor("#99FFFFFF"))
             binding.btnHome.typeface = Typeface.DEFAULT
 

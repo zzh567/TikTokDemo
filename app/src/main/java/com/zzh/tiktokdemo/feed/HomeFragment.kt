@@ -19,15 +19,15 @@ class HomeFragment : Fragment(R.layout.fragment_home) {
 
         // 1. 设置 ViewPager 的 Adapter
         binding.viewPager.adapter = object : FragmentStateAdapter(this) {
-            override fun getItemCount() = 4 // 两个 Tab
+            override fun getItemCount() = 4
 
             override fun createFragment(position: Int): Fragment {
                 return when (position) {
-                    0 -> FeedFragment() // 你的双列瀑布流 (作为“推荐”)
+                    0 -> FeedFragment()
                     1 -> FeedFragment()
                     2 -> CityFragment()
                     3 -> StoreFragment()
-                    else -> FeedFragment() // 偷懒：关注页也先用同一个，后面你可以写个空白页
+                    else -> FeedFragment()
                 }
             }
         }
@@ -35,8 +35,8 @@ class HomeFragment : Fragment(R.layout.fragment_home) {
         // 2. 将 TabLayout 和 ViewPager2 绑定 (实现联动)
         TabLayoutMediator(binding.tabLayout, binding.viewPager) { tab, position ->
             tab.text = when (position) {
-                0 -> "推荐" // 对应上面的 position 0
-                1 -> "关注" // 对应上面的 position 1
+                0 -> "推荐"
+                1 -> "关注"
                 2 -> "同城"
                 3 -> "商城"
                 else -> ""

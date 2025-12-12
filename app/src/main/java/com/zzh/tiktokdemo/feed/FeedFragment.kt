@@ -14,8 +14,7 @@ class FeedFragment : Fragment(R.layout.fragment_feed) {
     private var _binding: FragmentFeedBinding? = null
     private val binding get() = _binding!!
 
-    // NEW: 2. 懒加载初始化 ViewModel
-    // 这种写法会让系统自动帮你创建 ViewModel 实例
+    // 懒加载初始化 ViewModel
     private val viewModel: FeedViewModel by viewModels()
 
     private val feedAdapter = FeedAdapter()
@@ -50,13 +49,9 @@ class FeedFragment : Fragment(R.layout.fragment_feed) {
         viewModel.videoList.observe(viewLifecycleOwner) { videos ->
             if (videos != null && videos.isNotEmpty()) {
                 feedAdapter.submitList(videos) {
-                    binding.feedRecyclerView.apply {
-                        layoutManager = StaggeredGridLayoutManager(2, StaggeredGridLayoutManager.VERTICAL)
-                        adapter = feedAdapter
-                        itemAnimator = null
-                    }
+                    val newLayoutManager = StaggeredGridLayoutManager(2, StaggeredGridLayoutManager.VERTICAL)
+                    binding.feedRecyclerView.layoutManager = newLayoutManager
                 }
-
                 binding.refreshLayout.finishRefresh()
             } else {
                 binding.refreshLayout.finishRefresh(false)
