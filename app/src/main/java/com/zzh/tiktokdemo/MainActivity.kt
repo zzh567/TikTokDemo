@@ -22,8 +22,15 @@ class MainActivity : AppCompatActivity() {
         setContentView(binding.root)
 
         // 1. 初始化：默认加载首页，并设置按钮样式
-        switchFragment(homeFragment)
-        updateBottomTabUI(isHome = true)
+        if (savedInstanceState == null) {
+            // 只有在第一次启动（非重建）时，才手动添加 Fragment
+            switchFragment(homeFragment)
+            updateBottomTabUI(isHome = true)
+        } else {
+            // 如果是旋转屏幕回来的，系统已经恢复了 Fragment，
+            // 我们只需要根据当前显示的 Fragment 恢复底部按钮的状态即可。
+            // 可配合 ViewModel 保存当前选中的 tab index
+        }
 
         // 2. 点击“首页”
         binding.btnHome.setOnClickListener {
