@@ -21,7 +21,6 @@
             android:layout_height="wrap_content"
             android:minHeight="180dp"
             android:adjustViewBounds="true"
-            android:scaleType="centerCrop"
             app:layout_constraintStart_toStartOf="parent"
             app:layout_constraintEnd_toEndOf="parent"
             app:layout_constraintTop_toTopOf="parent"

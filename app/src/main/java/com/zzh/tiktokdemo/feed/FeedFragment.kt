@@ -25,7 +25,7 @@ class FeedFragment : Fragment(R.layout.fragment_feed) {
 
         setupRecyclerView()
         setupRefreshLayout()
-        observeViewModel() // NEW: 3. 开始观察数据
+        observeViewModel()
     }
 
     private fun setupRecyclerView() {

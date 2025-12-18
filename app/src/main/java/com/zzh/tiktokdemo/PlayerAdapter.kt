@@ -3,7 +3,9 @@ package com.zzh.tiktokdemo
 import android.annotation.SuppressLint
 import android.view.LayoutInflater
 import android.view.ViewGroup
+import androidx.annotation.OptIn
 import androidx.media3.common.MediaItem
+import androidx.media3.common.util.UnstableApi
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.recyclerview.widget.RecyclerView
 import com.zzh.tiktokdemo.databinding.ItemVideoPlayerBinding
@@ -56,7 +58,7 @@ class PlayerAdapter(
     // 🔥 保留：这是 RecyclerView 内部的回收机制，滑出去必须释放
     override fun onViewDetachedFromWindow(holder: VideoViewHolder) {
         super.onViewDetachedFromWindow(holder)
-        holder.release()
+        holder.detachPlayer()
     }
 
     class VideoViewHolder(
@@ -179,6 +181,12 @@ class PlayerAdapter(
 
             currentUrl = item.videoUrl
             binding.ivCoverTransition.transitionName = item.videoUrl
+            binding.ivCoverTransition.animate().cancel()
+
+            // 2. 强制恢复不透明度（复活封面图）
+            binding.ivCoverTransition.alpha = 1f
+
+            // 3. 确保可见
             binding.ivCoverTransition.visibility = android.view.View.VISIBLE
 
             com.bumptech.glide.Glide.with(binding.root.context)
@@ -198,19 +206,18 @@ class PlayerAdapter(
             }
         }
 
-        fun play() {
-            if (currentUrl == null) return
-
-            // 1. 创建播放器
-            if (player == null) {
-                player = ExoPlayer.Builder(binding.root.context).build()
-            }
-
-            // 2. 绑定视图 (必须有)
+        @OptIn(UnstableApi::class)
+        fun attachPlayer(player: ExoPlayer, url: String) {
+            // 1. 把全局播放器连到当前屏幕
+            this.player = player
             binding.playerView.player = player
 
-            // 3. 🔥🔥🔥 核心修改：添加监听器来隐藏封面图
-            player?.addListener(object : androidx.media3.common.Player.Listener {
+            // 2. 从缓存加载数据
+            val mediaSource = VideoCache.buildMediaSource(url)
+            player.setMediaSource(mediaSource)
+            player.prepare()
+
+            player.addListener(object : androidx.media3.common.Player.Listener {
                 // 时机 A：视频第一帧渲染好了 -> 完美隐藏
                 override fun onRenderedFirstFrame() {
                     hideCoverImage()
@@ -228,16 +235,8 @@ class PlayerAdapter(
                 }
             })
 
-            // 4. 准备资源
-            val mediaItem = MediaItem.fromUri(currentUrl!!)
-            player?.setMediaItem(mediaItem)
-            player?.prepare()
-            player?.play()
+            player.play()
 
-            binding.ivPlayStatus.visibility = android.view.View.GONE
-
-            // 5. 🔥 修改触摸监听：只保留这一个！
-            // 删掉原来的 setOnClickListener，逻辑全部交给 gestureDetector 处理
             binding.root.setOnTouchListener { _, event ->
                 gestureDetector.onTouchEvent(event)
                 // 必须返回 true，表示“我接收了这个事件”，
@@ -245,28 +244,51 @@ class PlayerAdapter(
                 true
             }
 
+            resumeAnimation()
+        }
+
+        // 新增方法：把播放器踢走，但【不销毁】播放器
+        fun detachPlayer() {
+
+
+            // 2. 🔥🔥🔥 核心修复：停止播放并清除状态
+            // stop() 会让播放器进入 IDLE 状态，并清除内部的视频 buffer
+            // 这样下次 attach 时，它就是一张白纸，不会带着旧画面去见新 View
+            player?.stop()
+            player?.clearMediaItems()
+
+            // 3. 断开 UI 连接
+            binding.playerView.player = null
+
+            // 4. 清理引用
+            this.player = null
+            pauseAnimation()
+        }
+
+        fun resumeAnimation() {
             if (rotateAnimator?.isPaused == true) {
                 rotateAnimator?.resume() // 如果是暂停状态，继续转
             } else {
                 rotateAnimator?.start()  // 如果是停止状态，重新转
             }
+            binding.ivPlayStatus.visibility = android.view.View.GONE
         }
 
         // 🔧 辅助方法：渐隐消失封面图
         private fun hideCoverImage() {
             if (binding.ivCoverTransition.visibility == android.view.View.VISIBLE) {
-                binding.ivCoverTransition.animate()
-                    .alpha(0f)
-                    .setDuration(200)
-                    .withEndAction {
-                        binding.ivCoverTransition.visibility = android.view.View.GONE
-                    }
-                    .start()
+//                binding.ivCoverTransition.animate()
+//                    .alpha(0f)
+//                    .setDuration(200)
+//                    .withEndAction {
+//                        binding.ivCoverTransition.visibility = android.view.View.GONE
+//                    }
+//                    .start()
+                binding.ivCoverTransition.visibility = android.view.View.GONE
             }
         }
 
-        fun pause() {
-            player?.pause()
+        fun pauseAnimation() {
             rotateAnimator?.pause()
             binding.ivPlayStatus.visibility = android.view.View.VISIBLE
             binding.ivPlayStatus.alpha = 1f
@@ -278,7 +300,8 @@ class PlayerAdapter(
             if (player.isPlaying) {
                 // 🛑 暂停逻辑：直接调用我们封装好的 pause() 方法
                 // 这样既暂停了视频，又暂停了转盘动画
-                pause()
+                player.pause()
+                pauseAnimation()
             } else {
                 // ▶️ 播放逻辑
                 player.play()

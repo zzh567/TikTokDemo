@@ -23,6 +23,31 @@ class CommentBottomSheet(
     private val comments = ArrayList<Comment>()
     private lateinit var commentAdapter: CommentAdapter
 
+    override fun onStart() {
+        super.onStart()
+
+        // 1. 拿到 BottomSheet 的容器对象
+        val dialog = dialog as? com.google.android.material.bottomsheet.BottomSheetDialog
+        val bottomSheet = dialog?.findViewById<android.view.View>(com.google.android.material.R.id.design_bottom_sheet)
+
+        bottomSheet?.let { view ->
+            // 2. 计算屏幕高度
+            val displayMetrics = resources.displayMetrics
+            val height = (displayMetrics.heightPixels * 0.7).toInt() // 设置为屏幕高度的 70%
+
+            // 3. 强制设置高度
+            val layoutParams = view.layoutParams
+            layoutParams.height = height
+            view.layoutParams = layoutParams
+
+            // 4. 强制展开 (防止它默认只露出一半)
+            val behavior = com.google.android.material.bottomsheet.BottomSheetBehavior.from(view)
+            behavior.state = com.google.android.material.bottomsheet.BottomSheetBehavior.STATE_EXPANDED
+            // 这一句很重要，防止下滑时直接关闭，而是先折叠 (可选)
+            // behavior.skipCollapsed = true
+        }
+    }
+
     override fun onCreateView(
         inflater: LayoutInflater, container: ViewGroup?, savedInstanceState: Bundle?
     ): View {

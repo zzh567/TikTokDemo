@@ -56,6 +56,8 @@ dependencies {
 // 视频播放: ExoPlayer (新版 Media3)
     implementation("androidx.media3:media3-exoplayer:1.1.0")
     implementation("androidx.media3:media3-ui:1.1.0")
+    implementation("androidx.media3:media3-database")
+    implementation("androidx.media3:media3-datasource")
 // 下拉刷新: SmartRefreshLayout
     implementation ("io.github.scwang90:refresh-layout-kernel:2.0.6")
 // Fragment KTX (提供了 by viewModels() 等语法糖)
@@ -70,4 +72,6 @@ dependencies {
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.7.1")
     // Material Design 组件 (用于更好看的输入框和按钮)
     implementation("com.google.android.material:material:1.9.0")
+
+
 }

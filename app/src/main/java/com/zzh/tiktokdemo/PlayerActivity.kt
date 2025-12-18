@@ -9,9 +9,11 @@ import android.os.Environment
 import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
+import androidx.annotation.OptIn
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.FileProvider
+import androidx.media3.common.util.UnstableApi
 
 import androidx.recyclerview.widget.RecyclerView
 import androidx.viewpager2.widget.ViewPager2
@@ -19,6 +21,7 @@ import com.yalantis.ucrop.UCrop
 import com.zzh.tiktokdemo.databinding.ActivityPlayerBinding
 import com.zzh.tiktokdemo.vedioclass.VideoItem
 import java.io.File
+import androidx.media3.exoplayer.ExoPlayer
 
 class PlayerActivity : AppCompatActivity() {
 
@@ -40,6 +43,10 @@ class PlayerActivity : AppCompatActivity() {
             // 启动时带上动画参数
             context.startActivity(intent, bundle)
         }
+    }
+
+    private val globalPlayer by lazy {
+        ExoPlayer.Builder(this).build()
     }
 
     private val viewModel: PlayerViewModel by viewModels()
@@ -83,10 +90,14 @@ class PlayerActivity : AppCompatActivity() {
         }
     }
 
+    @OptIn(UnstableApi::class)
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         binding = ActivityPlayerBinding.inflate(layoutInflater)
         setContentView(binding.root)
+
+        //初始化视频缓存
+        VideoCache.init(this)
 
         supportPostponeEnterTransition()
 
@@ -103,7 +114,8 @@ class PlayerActivity : AppCompatActivity() {
     }
     private fun showAiChatDialog() {
         // 暂停视频 (可选，看需求)
-        currentPlayingHolder?.pause()
+        globalPlayer.pause()
+        currentPlayingHolder?.pauseAnimation()
 
         val dialog = AiChatDialogFragment()
         dialog.show(supportFragmentManager, "AiChatDialog")
@@ -112,11 +124,17 @@ class PlayerActivity : AppCompatActivity() {
     private fun initViewPager() {
         binding.viewPager.orientation = ViewPager2.ORIENTATION_VERTICAL
 
-        adapter = PlayerAdapter(videoList, startPosition, {
-            supportStartPostponedEnterTransition()}, { position -> showAvatarSelectionDialog(position) },
+        adapter = PlayerAdapter(
+            videoList, startPosition,
+            {
+                supportStartPostponedEnterTransition()
+            },
+            { position -> showAvatarSelectionDialog(position) },
         )
 
         binding.viewPager.adapter = adapter
+
+        binding.viewPager.offscreenPageLimit = 1
 
         // 1. 设置默认位置 (不要平滑滚动)
         binding.viewPager.setCurrentItem(startPosition, false)
@@ -135,6 +153,8 @@ class PlayerActivity : AppCompatActivity() {
             playVideoAt(startPosition)
         }
     }
+
+    @OptIn(UnstableApi::class)
     private fun playVideoAt(position: Int) {
         // ViewPager2 内部其实就是一个 RecyclerView
         val recyclerView = binding.viewPager.getChildAt(0) as RecyclerView
@@ -149,13 +169,24 @@ class PlayerActivity : AppCompatActivity() {
                 // 判断：是当前选中的吗？
                 if (viewHolder.bindingAdapterPosition == position) {
                     // ✅ 是主角 -> 播放
-                    viewHolder.play()
-                    currentPlayingHolder = viewHolder
+                    // 1. 先让上一个视频（如果有）把播放器交出来
+                    currentPlayingHolder?.detachPlayer()
+
+                    // 2. 让当前的 holder 接管播放器
+                    if (viewHolder is PlayerAdapter.VideoViewHolder) {
+                        viewHolder.attachPlayer(globalPlayer, videoList[position].videoUrl)
+                        currentPlayingHolder = viewHolder
+                    }
+
                 } else {
                     // ❌ 是配角 (上一个或下一个) -> 停止/释放
-                    viewHolder.release()
+                    viewHolder.detachPlayer()
                 }
             }
+        }
+        if (position + 1 < videoList.size) {
+            val nextVideoUrl = videoList[position + 1].videoUrl
+            VideoCache.preLoadNextVideo(nextVideoUrl)
         }
     }
     private fun setupSmartRefresh() {
@@ -173,13 +204,22 @@ class PlayerActivity : AppCompatActivity() {
         // 监听数据变化
         viewModel.newVideoList.observe(this) { newVideos ->
             if (binding.refreshLayout.isRefreshing) {
-                // 如果是正在刷新 -> 重置列表
+                // 1. 刷新数据
                 adapter.refreshData(newVideos)
                 binding.refreshLayout.finishRefresh()
-                // 刷新后可能需要重置播放位置到 0
+
+                // 2. 重置位置到 0
                 binding.viewPager.setCurrentItem(0, false)
+
+                // ✅✅✅ 修复方案：手动触发第 0 个视频的播放
+                // 使用 post 是为了等待 RecyclerView 布局刷新完成，确保能找到 ViewHolder
+                binding.viewPager.post {
+                    playVideoAt(0)
+                }
+
             } else {
-                // 如果是加载更多 -> 追加列表
+                // 加载更多 (Load More) 的逻辑通常是正常的
+                // 因为加载更多后，用户需要滑到下一个位置，这会自动触发 onPageSelected
                 adapter.addData(newVideos)
                 binding.refreshLayout.finishLoadMore()
             }
@@ -197,19 +237,21 @@ class PlayerActivity : AppCompatActivity() {
     override fun onPause() {
         super.onPause()
         // 直接命令存好的 holder 暂停
-        currentPlayingHolder?.pause()
+        globalPlayer.pause()
+        currentPlayingHolder?.pauseAnimation()
     }
 
     override fun onResume() {
         super.onResume()
-        currentPlayingHolder?.play()
+        globalPlayer.play()
+        currentPlayingHolder?.resumeAnimation()
     }
 
     override fun onDestroy() {
         super.onDestroy()
         // 直接命令存好的 holder 释放
-        currentPlayingHolder?.release()
         currentPlayingHolder = null // 避免内存泄漏
+        globalPlayer.release()
     }
 
     // 更换头像
@@ -217,7 +259,8 @@ class PlayerActivity : AppCompatActivity() {
     private fun showAvatarSelectionDialog(position: Int) {
         // 🔥🔥🔥 修复 Bug 1: 弹窗时主动暂停视频
         // 因为 Dialog 不会触发 onPause，所以我们得手动停
-        currentPlayingHolder?.pause()
+        globalPlayer.pause()
+        currentPlayingHolder?.pauseAnimation()
 
         currentChangingPosition = position
         val options = arrayOf("拍照", "从相册选择")
@@ -231,7 +274,8 @@ class PlayerActivity : AppCompatActivity() {
             }
             .setOnCancelListener {
                 // 可选：如果用户取消弹窗，恢复播放
-                currentPlayingHolder?.play()
+                globalPlayer.play()
+                currentPlayingHolder?.resumeAnimation()
             }
             .show()
     }
